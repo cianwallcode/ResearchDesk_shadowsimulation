@@ -2,27 +2,38 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Precedent Engine 3D</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000' rx='15'/><text x='12' y='72' font-family='Arial Black' font-size='65' font-weight='900' fill='%23fff'>R</text><circle cx='70' cy='40' r='25' fill='%23ff6b00'/></svg>">
+    <title>Soane Bank of England: Solar Study</title>
     <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
     </script>
     <style>
-        :root { --accent: #ff4500; }
-        body { margin: 0; background: #fff; display: flex; height: 100vh; font-family: sans-serif; }
-        .sidebar { width: 280px; border-right: 1px solid #ddd; padding: 20px; background: #fdfdfd; z-index: 10; }
-        .btn-jump { background: #000; color: #fff; border: none; padding: 12px; width: 100%; cursor: pointer; font-weight: bold; margin-bottom: 20px; }
-        #canvas-container { flex: 1; background: #fff; }
+        body { margin: 0; background: #fff; display: flex; height: 100vh; font-family: 'Georgia', serif; }
+        .sidebar { width: 300px; border-right: 1px solid #ddd; padding: 25px; background: #fdfdfd; z-index: 10; display: flex; flex-direction: column; }
+        h1 { font-size: 16px; border-bottom: 2px solid #ff4500; padding-bottom: 10px; margin-bottom: 20px; }
+        .control-group { margin-bottom: 25px; }
+        label { font-size: 10px; font-weight: bold; text-transform: uppercase; color: #777; display: block; margin-bottom: 8px; }
+        input[type="range"] { width: 100%; accent-color: #ff4500; cursor: pointer; }
+        .data-out { font-size: 14px; font-weight: bold; color: #ff4500; font-family: monospace; }
+        #canvas-container { flex: 1; }
     </style>
 </head>
 <body>
 
 <div class="sidebar">
-    <h2 style="font-size:12px;">PRECEDENT ENGINE</h2>
-    <button class="btn-jump" id="viewToggle">JUMP TO SOANE INTERIOR</button>
-    <label style="font-size:9px;">SOLAR TIME</label>
-    <input type="range" id="hour" min="8" max="18" step="0.01" value="12" style="width:100%; accent-color:var(--accent);">
-    <div id="hourVal" style="font-weight:bold; color:var(--accent);">12:00</div>
+    <h1>BANK OF ENGLAND 1788</h1>
+    <div class="control-group">
+        <label>Solar Time (Shadow Scroll)</label>
+        <input type="range" id="hour" min="7" max="18" step="0.01" value="11">
+        <div id="hourVal" class="data-out">11:00 AM</div>
+    </div>
+    <div class="control-group">
+        <label>Architecture Alpha</label>
+        <input type="range" id="opacity" min="0.1" max="1" step="0.1" value="1">
+    </div>
+    <div style="margin-top:auto; font-size: 10px; color: #999;">
+        &copy; 2026 R4 / Project Soane Reconstruction<br>
+        Models: Consols Office / Bank Stock Office
+    </div>
 </div>
 
 <div id="canvas-container"></div>
@@ -31,86 +42,118 @@
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-    let scene, camera, renderer, controls, sun, currentView = 'exterior';
-    let exteriorGroup, interiorGroup;
+    let scene, camera, renderer, controls, sun, interiorLight, model;
     const container = document.getElementById('canvas-container');
 
     function init() {
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0xffffff);
 
-        camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 1000);
-        camera.position.set(20, 15, 20);
+        camera = new THREE.PerspectiveCamera(55, container.clientWidth / container.clientHeight, 0.1, 1000);
+        camera.position.set(0, -1, 14); // Hero interior view
 
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
 
         controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 4, 0); // Focus on the dome
         
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-        sun = new THREE.DirectionalLight(0xffffff, 2);
+        // Lighting
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        sun = new THREE.DirectionalLight(0xffffff, 2.0);
         sun.castShadow = true;
+        sun.shadow.mapSize.set(4096, 4096);
         scene.add(sun);
 
-        buildModels();
+        buildSoaneHall();
         animate();
-
-        document.getElementById('viewToggle').onclick = toggle;
     }
 
-    function buildModels() {
-        // Exterior
-        exteriorGroup = new THREE.Group();
-        const extBox = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 10), new THREE.MeshStandardMaterial({color:0xdddddd}));
-        extBox.castShadow = true;
-        exteriorGroup.add(extBox);
-        scene.add(exteriorGroup);
-
-        // Interior (Soane)
-        interiorGroup = new THREE.Group();
-        const intFloor = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), new THREE.MeshStandardMaterial({color:0xffffff}));
-        intFloor.rotation.x = -Math.PI/2;
-        intFloor.position.y = -5;
-        intFloor.receiveShadow = true;
-        interiorGroup.add(intFloor);
-
-        // Red Lantern
-        const lantern = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 2), new THREE.MeshStandardMaterial({color:0x8b0000, emissive:0xff0000, emissiveIntensity:2}));
-        lantern.position.y = 10;
-        interiorGroup.add(lantern);
-
-        const redLight = new THREE.PointLight(0xff0000, 20, 30);
-        redLight.position.y = 10;
-        redLight.castShadow = true;
-        interiorGroup.add(redLight);
-
-        interiorGroup.visible = false;
-        scene.add(interiorGroup);
-    }
-
-    function toggle() {
-        currentView = currentView === 'exterior' ? 'interior' : 'exterior';
-        exteriorGroup.visible = (currentView === 'exterior');
-        interiorGroup.visible = (currentView === 'interior');
+    function buildSoaneHall() {
+        model = new THREE.Group();
+        const stoneMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, side: THREE.DoubleSide });
         
-        if(currentView === 'interior') {
-            camera.position.set(0, 0, 15); // Safe Interior Spawn
-            controls.target.set(0, 0, 0);
-        } else {
-            camera.position.set(20, 15, 20);
-            controls.target.set(0, 0, 0);
+        // 1. FLOOR (Plan Carrier)
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40), stoneMat);
+        floor.rotation.x = -Math.PI / 2;
+        floor.position.y = -5;
+        floor.receiveShadow = true;
+        model.add(floor);
+
+        // 2. THE PENDENTIVE CROSSING
+        // We simulate the arches that bridge the square room to the circular dome
+        const archShape = new THREE.Shape();
+        archShape.moveTo(-6, 0);
+        archShape.lineTo(6, 0);
+        archShape.lineTo(6, 6);
+        archShape.absarc(0, 6, 6, 0, Math.PI, false); // Arched top
+        archShape.lineTo(-6, 0);
+
+        const archGeom = new THREE.ExtrudeGeometry(archShape, { depth: 0.5, bevelEnabled: false });
+        for(let i=0; i<4; i++) {
+            const arch = new THREE.Mesh(archGeom, stoneMat);
+            arch.rotation.y = (Math.PI / 2) * i;
+            arch.position.set(i%2===0?0:(i===1?6:-6), -5, i%2!==0?0:(i===0?6:-6));
+            arch.castShadow = arch.receiveShadow = true;
+            model.add(arch);
         }
-        controls.update();
+
+        // 3. THE DRUM (The Windowed Section)
+        const drumRadius = 5;
+        const drumGroup = new THREE.Group();
+        const drumBase = new THREE.Mesh(
+            new THREE.CylinderGeometry(drumRadius, drumRadius, 3, 32, 1, true),
+            stoneMat
+        );
+        drumBase.position.y = 5.5;
+        drumGroup.add(drumBase);
+
+        // 4. DRUM WINDOWS (12 Vertical Slits for Shadows)
+        const winMat = new THREE.MeshStandardMaterial({ 
+            color: 0x8b0000, emissive: 0xff0000, emissiveIntensity: 3, transparent: true, opacity: 0.5 
+        });
+        for(let i=0; i<12; i++) {
+            const win = new THREE.Mesh(new THREE.PlaneGeometry(1, 2), winMat);
+            const ang = (i / 12) * Math.PI * 2;
+            win.position.set(Math.cos(ang) * 4.9, 5.5, Math.sin(ang) * 4.9);
+            win.lookAt(0, 5.5, 0);
+            drumGroup.add(win);
+        }
+        model.add(drumGroup);
+
+        // 5. THE SHALLOW DOME
+        const dome = new THREE.Mesh(
+            new THREE.SphereGeometry(drumRadius, 32, 16, 0, Math.PI * 2, 0, Math.PI / 3),
+            stoneMat
+        );
+        dome.position.y = 7;
+        dome.castShadow = true;
+        model.add(dome);
+
+        scene.add(model);
     }
 
     function animate() {
         requestAnimationFrame(animate);
         const hr = document.getElementById('hour').value;
-        document.getElementById('hourVal').innerText = Math.floor(hr) + ":00";
-        const angle = (hr - 12) * 0.5;
-        sun.position.set(Math.sin(angle)*30, 20, Math.cos(angle)*30);
+        const op = document.getElementById('opacity').value;
+        
+        // UI Display
+        const displayHr = Math.floor(hr);
+        const displayMin = Math.floor((hr % 1) * 60).toString().padStart(2, '0');
+        document.getElementById('hourVal').innerText = `${displayHr}:${displayMin} ${hr>=12?'PM':'AM'}`;
+
+        // Solar Shadow Calculation
+        const angle = (hr - 12) * (Math.PI / 6);
+        sun.position.set(Math.sin(angle) * 40, 25, Math.cos(angle) * 40);
+        
+        // Transparency update
+        model.traverse(n => { if(n.isMesh) n.material.opacity = op; });
+
+        controls.update();
         renderer.render(scene, camera);
     }
 
