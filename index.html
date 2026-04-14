@@ -2,42 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Soane Interior: Bank of England 1788-1833</title>
+    <title>Precedent Engine 3D</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%23000' rx='15'/><text x='12' y='72' font-family='Arial Black' font-size='65' font-weight='900' fill='%23fff'>R</text><circle cx='70' cy='40' r='25' fill='%23ff6b00'/></svg>">
-    
     <script type="importmap">
-    {
-      "imports": {
-        "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
-        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
-      }
-    }
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
     </script>
-
     <style>
-        :root { --accent: #ff4500; --bg: #ffffff; }
-        body { margin: 0; background: var(--bg); display: flex; height: 100vh; font-family: 'Inter', sans-serif; overflow: hidden; }
-        .sidebar { width: 300px; border-right: 1px solid #ddd; padding: 20px; background: #f9f9f9; z-index: 10; display: flex; flex-direction: column; }
-        .btn-jump { background: #8b0000; color: white; border: none; padding: 12px; font-weight: bold; cursor: pointer; margin-bottom: 20px; border-radius: 4px; }
-        .btn-jump:hover { background: #ff4500; }
-        #canvas-container { flex: 1; position: relative; }
-        .label { font-size: 10px; font-weight: bold; color: #666; text-transform: uppercase; margin-bottom: 10px; }
+        :root { --accent: #ff4500; }
+        body { margin: 0; background: #fff; display: flex; height: 100vh; font-family: sans-serif; }
+        .sidebar { width: 280px; border-right: 1px solid #ddd; padding: 20px; background: #fdfdfd; z-index: 10; }
+        .btn-jump { background: #000; color: #fff; border: none; padding: 12px; width: 100%; cursor: pointer; font-weight: bold; margin-bottom: 20px; }
+        #canvas-container { flex: 1; background: #fff; }
     </style>
 </head>
 <body>
 
 <div class="sidebar">
-    <div class="label">Navigation Control</div>
+    <h2 style="font-size:12px;">PRECEDENT ENGINE</h2>
     <button class="btn-jump" id="viewToggle">JUMP TO SOANE INTERIOR</button>
-    
-    <div class="label">Solar Time</div>
-    <input type="range" id="hour" min="8" max="18" step="0.01" value="12">
-    <div id="hourVal" style="color:var(--accent); font-weight:bold; margin-bottom:20px;">12:00</div>
-
-    <div id="status-box" style="margin-top:auto; font-size:10px; color:#999; border-top:1px solid #ddd; padding-top:10px;">
-        Mode: <span id="modeName">Exterior Model</span><br>
-        Source: Bank of England (Consols Office Reconstruction)
-    </div>
+    <label style="font-size:9px;">SOLAR TIME</label>
+    <input type="range" id="hour" min="8" max="18" step="0.01" value="12" style="width:100%; accent-color:var(--accent);">
+    <div id="hourVal" style="font-weight:bold; color:var(--accent);">12:00</div>
 </div>
 
 <div id="canvas-container"></div>
@@ -46,7 +31,7 @@
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-    let scene, camera, renderer, controls, sun, interiorLight, currentView = 'exterior';
+    let scene, camera, renderer, controls, sun, currentView = 'exterior';
     let exteriorGroup, interiorGroup;
     const container = document.getElementById('canvas-container');
 
@@ -55,54 +40,81 @@
         scene.background = new THREE.Color(0xffffff);
 
         camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 0.1, 1000);
-        camera.position.set(15, 10, 15);
+        camera.position.set(20, 15, 20);
 
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.shadowMap.enabled = true;
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
 
         controls = new OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-
-        // Lights
-        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-        sun = new THREE.DirectionalLight(0xffffff, 2.5);
+        
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        sun = new THREE.DirectionalLight(0xffffff, 2);
         sun.castShadow = true;
         scene.add(sun);
 
         buildModels();
-        setupEvents();
         animate();
+
+        document.getElementById('viewToggle').onclick = toggle;
     }
 
     function buildModels() {
-        // --- EXTERIOR MODEL ---
+        // Exterior
         exteriorGroup = new THREE.Group();
-        const extMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, transparent: true, opacity: 0.6 });
-        const box = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 10), extMat);
-        exteriorGroup.add(box);
+        const extBox = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 10), new THREE.MeshStandardMaterial({color:0xdddddd}));
+        extBox.castShadow = true;
+        exteriorGroup.add(extBox);
         scene.add(exteriorGroup);
 
-        // --- INTERIOR SOANE MODEL (Hidden initially) ---
+        // Interior (Soane)
         interiorGroup = new THREE.Group();
-        const intMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, side: THREE.DoubleSide });
-        
-        // Pendentive Dome Arches
-        const archGeo = new THREE.TorusGeometry(5, 0.5, 16, 100, Math.PI);
-        const arch1 = new THREE.Mesh(archGeo, intMat);
-        arch1.position.set(0, 4, 0);
-        interiorGroup.add(arch1);
+        const intFloor = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), new THREE.MeshStandardMaterial({color:0xffffff}));
+        intFloor.rotation.x = -Math.PI/2;
+        intFloor.position.y = -5;
+        intFloor.receiveShadow = true;
+        interiorGroup.add(intFloor);
 
-        // The Red Lantern
-        const lanternGeo = new THREE.CylinderGeometry(2, 2, 2, 32, 1, true);
-        const redGlassMat = new THREE.MeshStandardMaterial({ 
-            color: 0x8b0000, 
-            emissive: 0xff4500, 
-            emissiveIntensity: 2, 
-            transparent: true, 
-            opacity: 0.8 
-        });
-        const lantern = new THREE.Mesh(lanternGeo, redGlassMat);
-        lantern.
+        // Red Lantern
+        const lantern = new THREE.Mesh(new THREE.CylinderGeometry(2, 2, 2), new THREE.MeshStandardMaterial({color:0x8b0000, emissive:0xff0000, emissiveIntensity:2}));
+        lantern.position.y = 10;
+        interiorGroup.add(lantern);
+
+        const redLight = new THREE.PointLight(0xff0000, 20, 30);
+        redLight.position.y = 10;
+        redLight.castShadow = true;
+        interiorGroup.add(redLight);
+
+        interiorGroup.visible = false;
+        scene.add(interiorGroup);
+    }
+
+    function toggle() {
+        currentView = currentView === 'exterior' ? 'interior' : 'exterior';
+        exteriorGroup.visible = (currentView === 'exterior');
+        interiorGroup.visible = (currentView === 'interior');
+        
+        if(currentView === 'interior') {
+            camera.position.set(0, 0, 15); // Safe Interior Spawn
+            controls.target.set(0, 0, 0);
+        } else {
+            camera.position.set(20, 15, 20);
+            controls.target.set(0, 0, 0);
+        }
+        controls.update();
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const hr = document.getElementById('hour').value;
+        document.getElementById('hourVal').innerText = Math.floor(hr) + ":00";
+        const angle = (hr - 12) * 0.5;
+        sun.position.set(Math.sin(angle)*30, 20, Math.cos(angle)*30);
+        renderer.render(scene, camera);
+    }
+
+    init();
+</script>
+</body>
+</html>
