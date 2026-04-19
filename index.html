@@ -3,22 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <title>Solar Orientation + Shadow Simulation</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22black%22/><text x=%2230%22 y=%2270%22 font-family=%22sans-serif%22 font-weight=%22bold%22 font-size=%2260%22 fill=%22%23ff4500%22 text-anchor=%22middle%22>R</text><path d=%22M65 40 L85 40 L85 75 L65 75 Z M70 40 L70 30 L80 30 L80 40 Z M72 30 L75 22 L78 30 Z%22 fill=%22white%22/></svg>">
-    <script type="importmap">
-    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
-    </script>
     <style>
         :root { --accent: #ff4500; --bg: #ffffff; }
         body { margin: 0; font-family: 'Georgia', serif; color: #333; background: var(--bg); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         header { padding: 20px; border-bottom: 1px solid #ddd; display: flex; justify-content: space-between; align-items: center; }
         .logo { cursor: pointer; font-weight: bold; font-size: 1.2rem; color: var(--accent); text-transform: uppercase; }
-        #main-container { flex: 1; position: relative; overflow-y: auto; }
+        #main-container { flex: 1; position: relative; }
         #landing-page { position: absolute; z-index: 10; top: 0; left: 0; width: 100%; height: 100%; background: #fff; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         #start-project { padding: 15px 30px; background: var(--accent); color: white; border: none; cursor: pointer; font-size: 1rem; }
         #canvas-wrapper { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; }
-        #controls { position: absolute; bottom: 20px; left: 20px; z-index: 5; background: rgba(255,255,255,0.9); padding: 15px; border: 1px solid #ddd; }
-        footer { padding: 10px; border-top: 1px solid #ddd; font-size: 10px; color: #777; text-align: center; }
+        #controls { position: absolute; bottom: 20px; left: 20px; z-index: 5; background: rgba(255,255,255,0.9); padding: 15px; border: 1px solid #ddd; display: none; }
     </style>
+    <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
+    </script>
 </head>
 <body>
 <header><div class="logo" onclick="location.reload()">SOLAR ORIENTATION + SHADOW SIMULATION</div></header>
@@ -29,11 +27,13 @@
     </div>
     <div id="canvas-wrapper"></div>
 </div>
-<div id="controls" style="display: none;">
+<div id="controls">
+    <button id="btn-soane">Soane Hall</button>
+    <button id="btn-tadoando">Tadoando Church</button>
+    <br><br>
     <label>SOLAR TIME</label>
     <input type="range" id="hour" min="8" max="17" step="0.01" value="10.5">
 </div>
-<footer>&copy; 2026 R4 / Solar Orientation Simulation | Contact: admin@solar-simulation.com</footer>
 
 <script type="module">
     import * as THREE from 'three';
@@ -42,29 +42,26 @@
     let scene, camera, renderer, controls, sun;
     let modelGroup = new THREE.Group();
     const container = document.getElementById('canvas-wrapper');
-
-    // Scale Factor: 20x
-    const SF = 20;
+    const SF = 20; // 20x Scale Factor
 
     function init() {
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0xffffff);
-        // Extended far plane for massive scale
-        camera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 100000);
+        camera = new THREE.PerspectiveCamera(70, container.clientWidth / container.clientHeight, 0.1, 50000);
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
         renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
         container.appendChild(renderer.domElement);
         
         controls = new OrbitControls(camera, renderer.domElement);
         controls.enablePan = false;
-        controls.maxDistance = 5000; 
-        controls.minDistance = 10;
         
         sun = new THREE.DirectionalLight(0xffffff, 2.5);
         sun.castShadow = true;
-        sun.shadow.camera.left = -10000; sun.shadow.camera.right = 10000;
-        sun.shadow.camera.top = 10000; sun.shadow.camera.bottom = -10000;
+        sun.shadow.camera.left = -20000; sun.shadow.camera.right = 20000;
+        sun.shadow.camera.top = 20000; sun.shadow.camera.bottom = -20000;
+        sun.shadow.camera.near = 1; sun.shadow.camera.far = 50000;
         sun.shadow.mapSize.set(4096, 4096);
         scene.add(sun, new THREE.AmbientLight(0xffffff, 0.6));
         scene.add(modelGroup);
@@ -72,36 +69,52 @@
         document.getElementById('start-project').onclick = () => {
             document.getElementById('landing-page').style.display = 'none';
             document.getElementById('controls').style.display = 'block';
-            buildChurch();
+            switchModel('tadoando');
             animate();
         };
+
+        document.getElementById('btn-soane').addEventListener('click', () => switchModel('soane'));
+        document.getElementById('btn-tadoando').addEventListener('click', () => switchModel('tadoando'));
     }
 
-    function buildChurch() {
-        // Floor level eye position
-        camera.position.set(0, 0, 6000); 
-        controls.target.set(0, 0, -6000);
+    function switchModel(type) {
+        modelGroup.clear();
+        if(type === 'soane') {
+            camera.position.set(0, 100, 300);
+            controls.target.set(0, 15, 0);
+            controls.maxDistance = 1000;
+            buildSoaneHall();
+        } else {
+            camera.position.set(0, 0, 6000); 
+            controls.target.set(0, 0, -6000);
+            controls.maxDistance = 8000; // Bound to interior
+            buildTadoandoHall();
+        }
+    }
 
+    function buildSoaneHall() {
+        const mat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
+        for(let x of [-15, 15]) for(let z of [-15, 15]) {
+            const p = new THREE.Mesh(new THREE.BoxGeometry(10, 30, 10), mat);
+            p.position.set(x, 5, z);
+            modelGroup.add(p);
+        }
+    }
+
+    function buildTadoandoHall() {
         const wallMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, side: THREE.BackSide });
-        
-        // Scaled Volumes
         const nave = new THREE.Mesh(new THREE.BoxGeometry(150*SF, 150*SF, 900*SF), wallMat);
         nave.position.set(0, 75*SF, -150*SF);
-        
         const transept = new THREE.Mesh(new THREE.BoxGeometry(500*SF, 150*SF, 150*SF), wallMat);
         transept.position.set(0, 75*SF, -300*SF);
-        
         modelGroup.add(nave, transept);
 
-        // Altar Wall
         const shape = new THREE.Shape();
         shape.moveTo(-250*SF, -250*SF); shape.lineTo(250*SF, -250*SF); shape.lineTo(250*SF, 250*SF); shape.lineTo(-250*SF, 250*SF);
-        
         const h = new THREE.Path();
         h.moveTo(-50*SF, 100*SF); h.lineTo(50*SF, 100*SF); h.lineTo(50*SF, 50*SF); h.lineTo(100*SF, 50*SF); h.lineTo(100*SF, -50*SF); h.lineTo(50*SF, -50*SF);
         h.lineTo(50*SF, -150*SF); h.lineTo(-50*SF, -150*SF); h.lineTo(-50*SF, -50*SF); h.lineTo(-100*SF, -50*SF); h.lineTo(-100*SF, 50*SF); h.lineTo(-50*SF, 50*SF);
         shape.holes.push(h);
-
         const altarWall = new THREE.Mesh(new THREE.ShapeGeometry(shape), wallMat);
         altarWall.position.set(0, 75*SF, -600*SF);
         modelGroup.add(altarWall);
