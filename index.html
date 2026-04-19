@@ -56,8 +56,6 @@
         container.appendChild(renderer.domElement);
         
         controls = new OrbitControls(camera, renderer.domElement);
-        controls.minPolarAngle = Math.PI / 2.1;
-        controls.maxPolarAngle = Math.PI / 2.1;
         
         sun = new THREE.DirectionalLight(0xffffff, 2.5);
         sun.castShadow = true;
@@ -81,18 +79,19 @@
     function switchModel(type) {
         modelGroup.clear();
         if(type === 'soane') {
-            camera.position.set(0, 1.7, 25);
+            camera.position.set(0, 100, 150);
             controls.target.set(0, 15, 0);
             buildSoaneHall();
         } else {
-            camera.position.set(0, 10, 400); // Set further back in the larger nave
-            controls.target.set(0, 50, -350); // Aiming at cross
+            // Restore interior view
+            camera.position.set(0, 60, 200); 
+            controls.target.set(0, 60, -500); 
             buildTadoandoHall();
         }
     }
 
     function buildSoaneHall() {
-        const mat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, side: THREE.DoubleSide });
+        const mat = new THREE.MeshStandardMaterial({ color: 0xeeeeee });
         for(let x of [-15, 15]) for(let z of [-15, 15]) {
             const p = new THREE.Mesh(new THREE.BoxGeometry(10, 30, 10), mat);
             p.position.set(x, 5, z);
@@ -103,14 +102,14 @@
     function buildTadoandoHall() {
         const wallMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, side: THREE.DoubleSide });
         
-        // Expanded Cruciform Footprint (Nave + Transept)
+        // Expanded Cruciform Footprint
         const nave = new THREE.Mesh(new THREE.BoxGeometry(120, 120, 800), wallMat);
         const transept = new THREE.Mesh(new THREE.BoxGeometry(400, 120, 120), wallMat);
         nave.position.set(0, 60, -100);
         transept.position.set(0, 60, -200);
         modelGroup.add(nave, transept);
 
-        // Expanded Cruciform Window (Far wall)
+        // Cruciform Window (Far wall)
         const shape = new THREE.Shape();
         shape.moveTo(-200, -200); shape.lineTo(200, -200); shape.lineTo(200, 200); shape.lineTo(-200, 200);
         const h = new THREE.Path();
