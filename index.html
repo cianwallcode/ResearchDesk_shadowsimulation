@@ -5,10 +5,10 @@
     <title>Solar Orientation + Shadow Simulation</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2248%22 fill=%22%23ff4500%22/><text x=%2250%22 y=%2272%22 font-family=%22sans-serif%22 font-weight=%22bold%22 font-size=%2260%22 fill=%22white%22 text-anchor=%22middle%22>R</text></svg>">
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; display: flex; height: 100vh; }
-        #app { display: flex; flex: 1; }
+        body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
+        #app { display: flex; width: 100vw; height: 100vh; }
         #main-view { flex: 3; position: relative; border-right: 2px solid #444; }
-        #gizmo-view { flex: 1; position: relative; background: #050505; }
+        #gizmo-view { flex: 1; position: relative; background: #fff; } /* White background for the solar key */
         #controls { position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.8); color: white; padding: 20px; border: 1px solid #444; border-radius: 4px; z-index: 10;}
         button { background: #333; color: white; border: 1px solid #555; padding: 8px 12px; cursor: pointer; margin-right: 5px; }
         button:hover { background: #555; }
@@ -33,11 +33,9 @@
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-    // UI Elements
     const mainView = document.getElementById('main-view');
     const gizmoView = document.getElementById('gizmo-view');
     
-    // Scene Variables
     let scene, camera, renderer, sun, modelGroup;
     let gizmoScene, gizmoCamera, gizmoRenderer, sunMarker;
 
@@ -55,8 +53,8 @@
         mainView.appendChild(renderer.domElement);
         
         new OrbitControls(camera, renderer.domElement);
-        scene.add(new THREE.AmbientLight(0xffffff, 0.1));
         
+        scene.add(new THREE.AmbientLight(0xffffff, 0.1));
         sun = new THREE.DirectionalLight(0xffffff, 5);
         sun.castShadow = true;
         sun.shadow.camera.set(-600, 600, 600, -600, 1, 2000);
@@ -68,16 +66,22 @@
 
         // --- Gizmo Scene Setup ---
         gizmoScene = new THREE.Scene();
+        gizmoScene.background = new THREE.Color(0xffffff); // White background
+        
+        // Orthographic camera for axonometric view
         gizmoCamera = new THREE.OrthographicCamera(-150, 150, 150, -150, 1, 1000);
         gizmoCamera.position.set(100, 100, 100);
         gizmoCamera.lookAt(0, 0, 0);
 
-        gizmoRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        gizmoRenderer = new THREE.WebGLRenderer({ antialias: true });
         gizmoRenderer.setSize(gizmoView.clientWidth, gizmoView.clientHeight);
         gizmoView.appendChild(gizmoRenderer.domElement);
 
-        // Gizmo visuals
-        gizmoScene.add(new THREE.GridHelper(200, 10, 0x444444, 0x222222));
+        // White grid background (black lines)
+        const grid = new THREE.GridHelper(200, 10, 0x000000, 0x000000);
+        gizmoScene.add(grid);
+        
+        // Sun marker
         sunMarker = new THREE.Mesh(new THREE.SphereGeometry(10), new THREE.MeshBasicMaterial({color: 0xff4500}));
         gizmoScene.add(sunMarker);
 
@@ -141,7 +145,7 @@
         // Sun position (Main)
         sun.position.set(Math.sin(angle) * 700, 250, Math.cos(angle) * 700);
         
-        // Sun position (Gizmo)
+        // Sun position (Gizmo) - simplified circular path
         sunMarker.position.set(Math.sin(angle) * 80, 0, Math.cos(angle) * 80);
         
         renderer.render(scene, camera);
