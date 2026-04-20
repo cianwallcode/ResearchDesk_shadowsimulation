@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Solar Orientation + Shadow Simulation</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22black%22/><text x=%2230%22 y=%2270%22 font-family=%22sans-serif%22 font-weight=%22bold%22 font-size=%2260%22 fill=%22%23ff4500%22 text-anchor=%22middle%22>R</text><path d=%22M65 40 L85 40 L85 75 L65 75 Z M70 40 L70 30 L80 30 L80 40 Z M72 30 L75 22 L78 30 Z%22 fill=%22white%22/></svg>">
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; }
         #canvas-wrapper { width: 100vw; height: 100vh; }
@@ -15,8 +16,8 @@
 <body>
 <div id="canvas-wrapper"></div>
 <div id="controls">
-    <label>SOLAR TIME (Projected Light)</label><br>
-    <input type="range" id="hour" min="8" max="17" step="0.01" value="12">
+    <label>SOLAR ORBIT (0-24h)</label><br>
+    <input type="range" id="hour" min="0" max="24" step="0.01" value="12">
 </div>
 
 <script type="module">
@@ -28,9 +29,9 @@
 
     function init() {
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x000000); // Absolute black floor
+        scene.background = new THREE.Color(0x000000);
         camera = new THREE.PerspectiveCamera(50, container.clientWidth / container.clientHeight, 1, 5000);
-        camera.position.set(0, 300, 600);
+        camera.position.set(0, 300, 800);
 
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(container.clientWidth, container.clientHeight);
@@ -38,16 +39,16 @@
         renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
         container.appendChild(renderer.domElement);
         
-        // Near-zero ambient light creates the contrast for the beam
-        scene.add(new THREE.AmbientLight(0xffffff, 0.01));
+        // Low ambient for high contrast projection
+        scene.add(new THREE.AmbientLight(0xffffff, 0.02));
         
-        sun = new THREE.DirectionalLight(0xffffff, 5); // Intense sun
+        sun = new THREE.DirectionalLight(0xffffff, 5);
         sun.castShadow = true;
-        // Focus the shadow camera tightly on the floor area
-        sun.shadow.camera.left = -300; sun.shadow.camera.right = 300;
-        sun.shadow.camera.top = 300; sun.shadow.camera.bottom = -300;
-        sun.shadow.camera.near = 0.5; sun.shadow.camera.far = 1000;
-        sun.shadow.mapSize.set(4096, 4096); // High resolution for sharp edges
+        // Large shadow area to account for 360 degree orbit
+        sun.shadow.camera.left = -600; sun.shadow.camera.right = 600;
+        sun.shadow.camera.top = 600; sun.shadow.camera.bottom = -600;
+        sun.shadow.camera.near = 1; sun.shadow.camera.far = 2000;
+        sun.shadow.mapSize.set(4096, 4096);
         scene.add(sun);
 
         buildScene();
@@ -57,10 +58,11 @@
     function buildScene() {
         const wallMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
         
-        // Wall
+        // Wall (200w x 400h)
         const wallShape = new THREE.Shape();
         wallShape.moveTo(-100, -200); wallShape.lineTo(100, -200); wallShape.lineTo(100, 200); wallShape.lineTo(-100, 200);
         
+        // Cruciform hole
         const hole = new THREE.Path();
         hole.moveTo(-12, 100); hole.lineTo(12, 100); hole.lineTo(12, 25); hole.lineTo(50, 25); 
         hole.lineTo(50, -25); hole.lineTo(12, -25); hole.lineTo(12, -150); hole.lineTo(-12, -150); 
@@ -69,12 +71,12 @@
         wallShape.holes.push(hole);
 
         const wall = new THREE.Mesh(new THREE.ExtrudeGeometry(wallShape, { depth: 20, bevelEnabled: false }), wallMat);
-        wall.position.set(0, 200, -200);
+        // Positioned at Z = -400 to meet floor edge
+        wall.position.set(0, 200, -400);
         wall.castShadow = true;
         scene.add(wall);
         
-        // Dark floor to show the light projection
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), new THREE.MeshStandardMaterial({color: 0x0a0a0a}));
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), new THREE.MeshStandardMaterial({color: 0x050505}));
         floor.rotation.x = -Math.PI / 2;
         floor.receiveShadow = true;
         scene.add(floor);
@@ -83,9 +85,9 @@
     function animate() {
         requestAnimationFrame(animate);
         const hr = document.getElementById('hour').value;
-        const angle = (hr - 12) * (Math.PI / 6);
-        // Position the sun to cast the beam
-        sun.position.set(Math.sin(angle) * 500, 300, Math.cos(angle) * 500);
+        // Full 360 degree rotation
+        const angle = (hr / 24) * Math.PI * 2;
+        sun.position.set(Math.sin(angle) * 600, 400, Math.cos(angle) * 600);
         renderer.render(scene, camera);
     }
     init();
