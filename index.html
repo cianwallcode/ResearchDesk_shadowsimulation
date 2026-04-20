@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <title>Solar Orientation + Shadow Simulation</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2248%22 fill=%22%23ff4500%22/><text x=%2250%22 y=%2272%22 font-family=%22sans-serif%22 font-weight=%22bold%22 font-size=%2260%22 fill=%22white%22 text-anchor=%22middle%22>R</text></svg>">
     <style>
         body { margin: 0; background: #000; overflow: hidden; font-family: sans-serif; display: flex; height: 100vh; }
-        #app { display: flex; flex: 1; height: 100vh; }
+        #app { display: flex; flex: 1; }
         #main-view { flex: 3; position: relative; border-right: 2px solid #444; }
         #gizmo-view { flex: 1; position: relative; background: #050505; }
-        #controls { position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.8); color: white; padding: 20px; border: 1px solid #444; z-index: 10;}
-        button { background: #333; color: white; border: 1px solid #555; padding: 8px 12px; cursor: pointer; }
+        #controls { position: absolute; bottom: 20px; left: 20px; background: rgba(0,0,0,0.8); color: white; padding: 20px; border: 1px solid #444; border-radius: 4px; z-index: 10;}
+        button { background: #333; color: white; border: 1px solid #555; padding: 8px 12px; cursor: pointer; margin-right: 5px; }
         button:hover { background: #555; }
-        input[type=range] { width: 150px; display: block; margin-top: 10px; }
+        input[type=range] { width: 200px; display: block; margin-top: 10px; }
     </style>
     <script type="importmap">
     { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js", "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/" } }
@@ -32,51 +33,55 @@
     import * as THREE from 'three';
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+    // UI Elements
     const mainView = document.getElementById('main-view');
     const gizmoView = document.getElementById('gizmo-view');
     
+    // Scene Variables
     let scene, camera, renderer, sun, modelGroup;
     let gizmoScene, gizmoCamera, gizmoRenderer, sunMarker;
 
     function init() {
-        // --- Main Scene ---
+        // --- Main Scene Setup ---
         scene = new THREE.Scene();
         scene.background = new THREE.Color(0x000000);
         camera = new THREE.PerspectiveCamera(50, mainView.clientWidth / mainView.clientHeight, 1, 5000);
-        camera.position.set(400, 300, 800);
+        camera.position.set(0, 300, 800);
+
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(mainView.clientWidth, mainView.clientHeight);
         renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
         mainView.appendChild(renderer.domElement);
+        
         new OrbitControls(camera, renderer.domElement);
         scene.add(new THREE.AmbientLight(0xffffff, 0.1));
         
-        sun = new THREE.DirectionalLight(0xffffff, 4);
+        sun = new THREE.DirectionalLight(0xffffff, 5);
         sun.castShadow = true;
         sun.shadow.camera.set(-600, 600, 600, -600, 1, 2000);
+        sun.shadow.mapSize.set(2048, 2048);
         scene.add(sun);
+
         modelGroup = new THREE.Group();
         scene.add(modelGroup);
 
-        // --- Gizmo Scene ---
+        // --- Gizmo Scene Setup ---
         gizmoScene = new THREE.Scene();
-        // Orthographic camera for true axonometric projection
-        const aspect = gizmoView.clientWidth / gizmoView.clientHeight;
-        gizmoCamera = new THREE.OrthographicCamera(-150 * aspect, 150 * aspect, 150, -150, 1, 1000);
-        gizmoCamera.position.set(200, 200, 200);
+        gizmoCamera = new THREE.OrthographicCamera(-150, 150, 150, -150, 1, 1000);
+        gizmoCamera.position.set(100, 100, 100);
         gizmoCamera.lookAt(0, 0, 0);
-        gizmoRenderer = new THREE.WebGLRenderer({ antialias: true });
+
+        gizmoRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         gizmoRenderer.setSize(gizmoView.clientWidth, gizmoView.clientHeight);
         gizmoView.appendChild(gizmoRenderer.domElement);
-        
-        gizmoScene.add(new THREE.AmbientLight(0xffffff, 1));
-        const grid = new THREE.GridHelper(200, 10, 0xffffff, 0x444444);
-        gizmoScene.add(grid);
-        
-        // Sun Path Marker
+
+        // Gizmo visuals
+        gizmoScene.add(new THREE.GridHelper(200, 10, 0x444444, 0x222222));
         sunMarker = new THREE.Mesh(new THREE.SphereGeometry(10), new THREE.MeshBasicMaterial({color: 0xff4500}));
         gizmoScene.add(sunMarker);
 
+        // Interaction
         document.getElementById('btn-tadoando').onclick = () => switchMode('tadoando');
         document.getElementById('btn-soane').onclick = () => switchMode('soane');
 
@@ -84,31 +89,45 @@
         animate();
     }
 
+    function addBlackEdges(mesh) {
+        const edges = new THREE.EdgesGeometry(mesh.geometry);
+        const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x000000 }));
+        mesh.add(line);
+    }
+
     function switchMode(mode) {
         modelGroup.clear();
-        const floor = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), new THREE.MeshStandardMaterial({color: 0x111111}));
+        
+        // Floor
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), new THREE.MeshStandardMaterial({color: 0x050505}));
         floor.rotation.x = -Math.PI / 2;
         floor.receiveShadow = true;
         modelGroup.add(floor);
 
         if (mode === 'tadoando') {
+            const wallMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
             const wallShape = new THREE.Shape();
             wallShape.moveTo(-400, -200); wallShape.lineTo(400, -200); wallShape.lineTo(400, 200); wallShape.lineTo(-400, 200);
+            
             const hole = new THREE.Path();
             hole.moveTo(-12, 100); hole.lineTo(12, 100); hole.lineTo(12, 25); hole.lineTo(50, 25); 
             hole.lineTo(50, -25); hole.lineTo(12, -25); hole.lineTo(12, -150); hole.lineTo(-12, -150); 
             hole.lineTo(-12, -25); hole.lineTo(-50, -25); hole.lineTo(-50, 25); hole.lineTo(-12, 25);
             hole.lineTo(-12, 100);
             wallShape.holes.push(hole);
-            const wall = new THREE.Mesh(new THREE.ExtrudeGeometry(wallShape, { depth: 20, bevelEnabled: false }), new THREE.MeshStandardMaterial({ color: 0x888888 }));
+
+            const wall = new THREE.Mesh(new THREE.ExtrudeGeometry(wallShape, { depth: 20, bevelEnabled: false }), wallMat);
             wall.position.set(0, 200, -400);
             wall.castShadow = true;
+            addBlackEdges(wall);
             modelGroup.add(wall);
         } else {
+            const colMat = new THREE.MeshStandardMaterial({ color: 0x555555 });
             for(let x of [-200, 200]) for(let z of [-200, 200]) {
-                const p = new THREE.Mesh(new THREE.BoxGeometry(50, 400, 50), new THREE.MeshStandardMaterial({ color: 0x888888 }));
+                const p = new THREE.Mesh(new THREE.BoxGeometry(50, 400, 50), colMat);
                 p.position.set(x, 200, z);
                 p.castShadow = true;
+                addBlackEdges(p);
                 modelGroup.add(p);
             }
         }
@@ -119,10 +138,10 @@
         const hr = document.getElementById('hour').value;
         const angle = (hr / 24) * Math.PI * 2;
         
-        // Sun movement
+        // Sun position (Main)
         sun.position.set(Math.sin(angle) * 700, 250, Math.cos(angle) * 700);
         
-        // Gizmo Sun marker (Top-down view of the sun path)
+        // Sun position (Gizmo)
         sunMarker.position.set(Math.sin(angle) * 80, 0, Math.cos(angle) * 80);
         
         renderer.render(scene, camera);
